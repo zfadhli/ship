@@ -1,8 +1,61 @@
 import type { BumpType, Commit } from "./internal/types.ts"
 
+const CONVENTIONAL_TYPES = [
+  "feat",
+  "fix",
+  "docs",
+  "style",
+  "refactor",
+  "perf",
+  "test",
+  "build",
+  "ci",
+  "chore",
+  "revert",
+] as const
+
+const CONVENTIONAL_RE = new RegExp(`^(${CONVENTIONAL_TYPES.join("|")})(\\([\\w-]+\\))?!?:\\s`)
+
 const FEAT_RE = /^feat(\w|\(|:)/i
 const BREAKING_RE = /BREAKING CHANGE|^feat.*!:|^fix.*!:/i
 const FIX_RE = /^fix(\w|\(|:)/i
+
+export interface CommitWarning {
+  hash: string
+  message: string
+  reason: string
+}
+
+/**
+ * Validate commits against the conventional commit format.
+ * Returns a warning for each commit that doesn't match.
+ */
+export function validateCommits(commits: Commit[]): CommitWarning[] {
+  const warnings: CommitWarning[] = []
+  for (const c of commits) {
+    if (CONVENTIONAL_RE.test(c.message)) continue
+    // Skip merge commits and release commits
+    if (/^Merge /.test(c.message)) continue
+    if (/^Release v/.test(c.message)) continue
+
+    const hasPrefix = /^[\w-]+(\([\w-]+\))?!?:\s/.test(c.message)
+    if (hasPrefix) {
+      const type = c.message.match(/^([\w-]+)/)?.[1]
+      warnings.push({
+        hash: c.hash,
+        message: c.message,
+        reason: `Unrecognized type "${type}". Expected: ${CONVENTIONAL_TYPES.join(", ")}`,
+      })
+    } else {
+      warnings.push({
+        hash: c.hash,
+        message: c.message,
+        reason: "Does not match conventional commit format: type(scope)?: description",
+      })
+    }
+  }
+  return warnings
+}
 
 /**
  * Classify an array of conventional commits and determine the required

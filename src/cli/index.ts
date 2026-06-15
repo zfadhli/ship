@@ -36,6 +36,14 @@ cli.command("release", "Run the full release flow", (cmd) => {
 
         s.stop("Analysis complete")
 
+        // ── commit validation warnings ──────────────────────────
+        if (state.warnings.length > 0) {
+          const warningLines = state.warnings.map(
+            (w) => `  ${w.hash.slice(0, 7)}  ${w.message.split("\n")[0]}`,
+          )
+          p.note(warningLines.join("\n"), `⚠ ${state.warnings.length} Non-Conventional Commit(s)`)
+        }
+
         // ── preview ─────────────────────────────────────────────
         const previewLines = [
           `Last tag:    ${state.lastTag}`,

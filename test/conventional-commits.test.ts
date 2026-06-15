@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { classifyBump, classifyCommits } from "../src/core/conventional-commits.ts"
+import { classifyBump, classifyCommits, validateCommits } from "../src/core/conventional-commits.ts"
 
 describe("classifyBump", () => {
   it("returns patch for fix commits", () => {
@@ -60,5 +60,53 @@ describe("classifyCommits", () => {
   it("classifies other commits", () => {
     const result = classifyCommits([{ hash: "abc", message: "docs: readme" }])
     expect(result[0]?.type).toBe("other")
+  })
+})
+
+describe("validateCommits", () => {
+  it("returns no warnings for valid conventional commits", () => {
+    const result = validateCommits([
+      { hash: "a", message: "feat: add widget" },
+      { hash: "b", message: "fix(core): resolve crash" },
+      { hash: "c", message: "chore: update deps" },
+    ])
+    expect(result).toHaveLength(0)
+  })
+
+  it("warns on non-conventional message", () => {
+    const result = validateCommits([{ hash: "abc", message: "some random message" }])
+    expect(result).toHaveLength(1)
+    expect(result[0]?.reason).toContain("conventional commit format")
+  })
+
+  it("warns on unrecognized type", () => {
+    const result = validateCommits([{ hash: "abc", message: "wip: trying stuff" }])
+    expect(result).toHaveLength(1)
+    expect(result[0]?.reason).toContain('Unrecognized type "wip"')
+  })
+
+  it("skips merge commits", () => {
+    const result = validateCommits([{ hash: "abc", message: "Merge branch 'main' into feat/x" }])
+    expect(result).toHaveLength(0)
+  })
+
+  it("skips release commits", () => {
+    const result = validateCommits([{ hash: "abc", message: "Release v1.2.3" }])
+    expect(result).toHaveLength(0)
+  })
+
+  it("accepts scope with bang", () => {
+    const result = validateCommits([{ hash: "abc", message: "feat(core)!: breaking change" }])
+    expect(result).toHaveLength(0)
+  })
+
+  it("handles mixed valid and invalid commits", () => {
+    const result = validateCommits([
+      { hash: "a", message: "feat: good" },
+      { hash: "b", message: "nonsense" },
+      { hash: "c", message: "fix: ok" },
+    ])
+    expect(result).toHaveLength(1)
+    expect(result[0]?.hash).toBe("b")
   })
 })

@@ -2,8 +2,8 @@ import { execSync } from "node:child_process"
 import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { generateChangelog } from "./changelog.ts"
-import type { ClassifiedCommit } from "./conventional-commits.ts"
-import { classifyBump, classifyCommits } from "./conventional-commits.ts"
+import type { ClassifiedCommit, CommitWarning } from "./conventional-commits.ts"
+import { classifyBump, classifyCommits, validateCommits } from "./conventional-commits.ts"
 import {
   checkCleanWorktree,
   checkGhAuth,
@@ -28,6 +28,7 @@ export interface PreviewResult {
   newVersion: string
   repoUrl: string
   cwd: string
+  warnings: CommitWarning[]
 }
 
 /**
@@ -52,6 +53,7 @@ export async function preview(options: ReleaseOptions = {}): Promise<PreviewResu
 
   const classified = classifyCommits(rawCommits)
   const bump = classifyBump(rawCommits)
+  const warnings = validateCommits(rawCommits)
 
   const pkgPath = resolve(cwd, "package.json")
   const pkgRaw = await readFile(pkgPath, "utf-8")
@@ -61,7 +63,7 @@ export async function preview(options: ReleaseOptions = {}): Promise<PreviewResu
 
   const repoUrl = options.repo ? `https://github.com/${options.repo}` : await getRepoUrl(cwd)
 
-  return { lastTag, commits: classified, bump, oldVersion, newVersion, repoUrl, cwd }
+  return { lastTag, commits: classified, bump, oldVersion, newVersion, repoUrl, cwd, warnings }
 }
 
 /**
