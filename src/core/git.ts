@@ -16,7 +16,7 @@ function exec(cmd: string, cwd?: string): string {
  */
 export async function getLastTag(cwd?: string): Promise<string> {
   try {
-    return exec("git describe --tags --abbrev=0", cwd)
+    return exec("git describe --tags --abbrev=0 2>/dev/null", cwd)
   } catch {
     return "v0.0.0"
   }
@@ -30,7 +30,7 @@ export async function getCommits(opts: { from?: string; cwd?: string } = {}): Pr
   const from = opts.from ?? (await getLastTag(opts.cwd))
   let raw: string
   try {
-    raw = exec(`git log ${from}..HEAD --oneline --no-decorate`, opts.cwd)
+    raw = exec(`git log ${from}..HEAD --oneline --no-decorate 2>/dev/null`, opts.cwd)
   } catch {
     raw = exec("git log --oneline --no-decorate", opts.cwd)
   }
