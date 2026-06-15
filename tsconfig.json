@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "isolatedDeclarations": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "declarationDir": "dist",
+    "skipLibCheck": true,
+    "types": ["bun-types", "node"],
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src", "test"],
+  "exclude": ["dist", "node_modules"]
+}

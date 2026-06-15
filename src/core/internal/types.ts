@@ -1,0 +1,28 @@
+/** @internal Internal-only types — not exported in public API */
+
+export interface SemVer {
+  major: number
+  minor: number
+  patch: number
+}
+
+export interface Commit {
+  hash: string
+  message: string
+}
+
+export type ConventionalType = "breaking" | "feat" | "fix" | "other"
+export type BumpType = "major" | "minor" | "patch"
+
+export interface ReleaseOptions {
+  /** Git ref to compare against (default: last tag) */
+  from?: string
+  /** Project root directory (default: process.cwd()) */
+  cwd?: string
+  /** Skip interactive confirmation prompts */
+  yes?: boolean
+  /** Preview only, no writes or pushes */
+  dryRun?: boolean
+  /** GitHub "owner/repo" override (auto-detected from git remote) */
+  repo?: string
+}
