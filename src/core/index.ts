@@ -5,7 +5,7 @@ export type { ChangelogOptions } from "./changelog.ts"
 export { generateChangelog } from "./changelog.ts"
 export type { ClassifiedCommit, ConventionalType } from "./conventional-commits.ts"
 export { classifyBump, classifyCommits } from "./conventional-commits.ts"
-export { getCommits, getLastTag } from "./git.ts"
+export { getCommits, getLastTag, getRepoUrl } from "./git.ts"
 // Errors
 export {
   DirtyWorktreeError,
