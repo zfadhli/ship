@@ -14,7 +14,7 @@ export class DirtyWorktreeError extends ShipError {
 export class NotAuthenticatedError extends ShipError {
   override name = "NotAuthenticatedError"
   constructor() {
-    super("Not authenticated with GitHub CLI. Run `gh auth login`")
+    super("Not authenticated. Set GITHUB_TOKEN env var or run `gh auth login`")
   }
 }
 

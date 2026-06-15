@@ -28,4 +28,6 @@ export interface ReleaseOptions {
   repo?: string
   /** Git branch to push to (default: "main") */
   branch?: string
+  /** GitHub token for API access (falls back to GITHUB_TOKEN env) */
+  githubToken?: string
 }

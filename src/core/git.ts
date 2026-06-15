@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process"
-import { DirtyWorktreeError, NotAuthenticatedError, ShipError } from "./internal/errors.ts"
+import { DirtyWorktreeError, ShipError } from "./internal/errors.ts"
 import type { Commit } from "./internal/types.ts"
 
 function exec(cmd: string, cwd?: string): string {
@@ -50,17 +50,6 @@ export async function getCommits(opts: { from?: string; cwd?: string } = {}): Pr
 export async function checkCleanWorktree(cwd?: string): Promise<void> {
   const status = exec("git status --porcelain", cwd)
   if (status) throw new DirtyWorktreeError()
-}
-
-/**
- * Check that `gh` CLI is authenticated. Throws NotAuthenticatedError if not.
- */
-export async function checkGhAuth(): Promise<void> {
-  try {
-    execSync("gh auth status", { stdio: "pipe", encoding: "utf-8" })
-  } catch {
-    throw new NotAuthenticatedError()
-  }
 }
 
 /**

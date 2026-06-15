@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process"
 import { readFile, writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 import { generateChangelog } from "./changelog.ts"
@@ -6,7 +5,6 @@ import type { ClassifiedCommit, CommitWarning } from "./conventional-commits.ts"
 import { classifyBump, classifyCommits, validateCommits } from "./conventional-commits.ts"
 import {
   checkCleanWorktree,
-  checkGhAuth,
   createCommit,
   createTag,
   getCommits,
@@ -16,6 +14,7 @@ import {
   pushTag,
   stageAll,
 } from "./git.ts"
+import { checkAuth, createRelease, extractRepo } from "./github.ts"
 import { NoCommitsError } from "./internal/errors.ts"
 import type { BumpType, ReleaseOptions } from "./internal/types.ts"
 import { bumpVersion } from "./semver.ts"
@@ -39,7 +38,7 @@ export interface PreviewResult {
 export async function preview(options: ReleaseOptions = {}): Promise<PreviewResult> {
   const cwd = options.cwd ?? process.cwd()
 
-  await checkGhAuth()
+  await checkAuth({ githubToken: options.githubToken, repo: options.repo })
 
   const lastTag = await getLastTag(cwd)
   const rawCommits = await getCommits({
@@ -124,10 +123,11 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
   await pushTag(tag, cwd)
 
   // 4. Create GitHub Release
-  execSync(`gh release create ${tag} --notes-file /dev/stdin`, {
-    input: section,
-    encoding: "utf-8",
-    cwd,
+  await createRelease({
+    repo: extractRepo(repoUrl),
+    tag,
+    notes: section,
+    githubToken: options.githubToken,
   })
 
   console.log(`\n✅ Released ${tag}`)
