@@ -16,11 +16,11 @@ import {
   pushTag,
   stageAll,
 } from "./git.ts"
-import { NoCommitsError, ShipError } from "./internal/errors.ts"
+import { NoCommitsError } from "./internal/errors.ts"
 import type { BumpType, ReleaseOptions } from "./internal/types.ts"
 import { bumpVersion } from "./semver.ts"
 
-interface ReleaseState {
+export interface PreviewResult {
   lastTag: string
   commits: ClassifiedCommit[]
   bump: BumpType
@@ -31,29 +31,15 @@ interface ReleaseState {
 }
 
 /**
- * Run the full release flow:
- *
- * 1. Validate – gh auth, clean worktree
- * 2. Get commits since last tag
- * 3. Classify commits → determine bump (major / minor / patch)
- * 4. Update `package.json` version
- * 5. Generate changelog section, prepend to `CHANGELOG.md`
- * 6. Commit, tag, push
- * 7. Create GitHub Release
- *
- * Pass `{ yes: true }` to skip prompts (CI mode).
- * Pass `{ dryRun: true }` to preview without making changes.
+ * Analyze the current state without making any changes.
+ * Returns version info, commit list, and repo URL.
+ * Throws if gh is not authenticated or no commits since the ref.
  */
-export async function release(options: ReleaseOptions = {}): Promise<void> {
+export async function preview(options: ReleaseOptions = {}): Promise<PreviewResult> {
   const cwd = options.cwd ?? process.cwd()
 
-  // 1. Validate
   await checkGhAuth()
-  if (!options.dryRun) {
-    await checkCleanWorktree(cwd)
-  }
 
-  // 2. Get commits
   const lastTag = await getLastTag(cwd)
   const rawCommits = await getCommits({
     from: options.from ?? lastTag,
@@ -64,48 +50,54 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
     throw new NoCommitsError(options.from ?? lastTag)
   }
 
-  // 3. Classify
   const classified = classifyCommits(rawCommits)
   const bump = classifyBump(rawCommits)
 
-  // 4. Read current version
   const pkgPath = resolve(cwd, "package.json")
   const pkgRaw = await readFile(pkgPath, "utf-8")
-  const pkg = JSON.parse(pkgRaw) as { version: string; [key: string]: unknown }
+  const pkg = JSON.parse(pkgRaw) as { version: string }
   const oldVersion = pkg.version
   const newVersion = bumpVersion(oldVersion, bump)
 
-  // 5. Get repo URL
   const repoUrl = options.repo ? `https://github.com/${options.repo}` : await getRepoUrl(cwd)
 
-  const state: ReleaseState = {
-    lastTag,
-    commits: classified,
-    bump,
-    oldVersion,
-    newVersion,
-    repoUrl,
-    cwd,
+  return { lastTag, commits: classified, bump, oldVersion, newVersion, repoUrl, cwd }
+}
+
+/**
+ * Run the full release flow:
+ *
+ * 1. Analyze via {@link preview}
+ * 2. Update `package.json` version
+ * 3. Generate changelog section, prepend to `CHANGELOG.md`
+ * 4. Commit, tag, push
+ * 5. Create GitHub Release
+ *
+ * Pass `{ dryRun: true }` to preview without making changes.
+ *
+ * The caller is responsible for any user-facing prompts.
+ * Use {@link preview} separately to show previews before calling `release`.
+ */
+export async function release(options: ReleaseOptions = {}): Promise<void> {
+  const state = await preview(options)
+  const { cwd, commits: classified, newVersion, repoUrl } = state
+
+  if (!options.dryRun) {
+    await checkCleanWorktree(cwd)
   }
 
-  // 6. Preview / confirm
-  printPreview(state)
-
   if (options.dryRun) {
-    console.log("\n[Dry run] No changes were made.")
     return
   }
 
-  if (!options.yes) {
-    const confirmed = await askConfirm("Proceed with release?")
-    if (!confirmed) throw new ShipError("Aborted by user")
-  }
-
-  // 7. Update package.json
+  // 1. Update package.json
+  const pkgPath = resolve(cwd, "package.json")
+  const pkgRaw = await readFile(pkgPath, "utf-8")
+  const pkg = JSON.parse(pkgRaw) as { version: string; [key: string]: unknown }
   pkg.version = newVersion
   await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf-8")
 
-  // 8. Generate and prepend changelog
+  // 2. Generate and prepend changelog
   const date = new Date().toISOString().slice(0, 10)
   const section = generateChangelog(classified, {
     version: newVersion,
@@ -121,7 +113,7 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
   }
   await writeFile(changelogPath, `${section}${changelogContent}`, "utf-8")
 
-  // 9. Commit, tag, push
+  // 3. Commit, tag, push
   const tag = `v${newVersion}`
   await stageAll(cwd)
   await createCommit(`Release ${tag}`, cwd)
@@ -129,7 +121,7 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
   await push(options.branch ?? "main", cwd)
   await pushTag(tag, cwd)
 
-  // 10. Create GitHub Release
+  // 4. Create GitHub Release
   execSync(`gh release create ${tag} --notes-file /dev/stdin`, {
     input: section,
     encoding: "utf-8",
@@ -138,27 +130,4 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
 
   console.log(`\n✅ Released ${tag}`)
   console.log(`   ${repoUrl}/releases/tag/${tag}`)
-}
-
-function printPreview(state: ReleaseState): void {
-  console.log(`
-────────────────────────────────────────
-  Last tag:       ${state.lastTag}
-  Commits:        ${state.commits.length}
-  Old version:    ${state.oldVersion}
-  Next bump:      ${state.bump}
-  New version:    ${state.newVersion}
-────────────────────────────────────────
-`)
-}
-
-async function askConfirm(prompt: string): Promise<boolean> {
-  const { createInterface } = await import("node:readline")
-  const rl = createInterface({ input: process.stdin, output: process.stderr })
-  return new Promise<boolean>((resolvePromise) => {
-    rl.question(`${prompt} [Y/n] `, (answer) => {
-      rl.close()
-      resolvePromise(!["n", "N"].includes(answer.trim()))
-    })
-  })
 }

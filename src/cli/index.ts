@@ -1,17 +1,7 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises"
-import { resolve } from "node:path"
 import * as p from "@clack/prompts"
 import { createCLI } from "@zfadhli/koko-cli"
-import {
-  bumpVersion,
-  classifyBump,
-  getCommits,
-  getLastTag,
-  getRepoUrl,
-  release,
-  ShipError,
-} from "../core/index.ts"
+import { classifyBump, getCommits, getLastTag, preview, release, ShipError } from "../core/index.ts"
 
 const cli = createCLI("ship", "0.1.0").description(
   "Release automation — changelog generation, version bumping, GitHub releases",
@@ -39,31 +29,20 @@ cli.command("release", "Run the full release flow", (cmd) => {
       s.start("Analyzing commits...")
 
       try {
-        // ── analysis phase ──────────────────────────────────────
-        const from = options.from ?? (await getLastTag())
-        const commits = await getCommits({ from })
-
-        if (commits.length === 0) {
-          s.stop("Nothing to release")
-          p.cancel("No commits since the last tag.")
-          process.exit(0)
-        }
-
-        const bump = classifyBump(commits)
-        const pkgRaw = await readFile(resolve("package.json"), "utf-8")
-        const oldVersion = (JSON.parse(pkgRaw) as { version: string }).version
-        const newVersion = bumpVersion(oldVersion, bump)
-        const repoUrl = options.repo ? `https://github.com/${options.repo}` : await getRepoUrl()
+        const state = await preview({
+          from: options.from,
+          repo: options.repo,
+        })
 
         s.stop("Analysis complete")
 
         // ── preview ─────────────────────────────────────────────
         const previewLines = [
-          `Last tag:    ${from}`,
-          `Commits:     ${commits.length}`,
-          `Old version: ${oldVersion}`,
-          `Next bump:   ${bump}`,
-          `New version: ${newVersion}`,
+          `Last tag:    ${state.lastTag}`,
+          `Commits:     ${state.commits.length}`,
+          `Old version: ${state.oldVersion}`,
+          `Next bump:   ${state.bump}`,
+          `New version: ${state.newVersion}`,
         ]
 
         p.note(previewLines.join("\n"), "Release Preview")
@@ -90,15 +69,14 @@ cli.command("release", "Run the full release flow", (cmd) => {
         s2.start("Releasing...")
 
         await release({
-          yes: true,
           dryRun: false,
           from: options.from,
           repo: options.repo,
           branch: options.branch,
         })
 
-        s2.stop(`Released v${newVersion}`)
-        p.outro(`Done — ${repoUrl}/releases/tag/v${newVersion}`)
+        s2.stop(`Released v${state.newVersion}`)
+        p.outro(`Done — ${state.repoUrl}/releases/tag/v${state.newVersion}`)
       } catch (err) {
         s.stop("Error")
         if (err instanceof ShipError) {

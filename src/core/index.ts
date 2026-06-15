@@ -15,7 +15,8 @@ export {
 } from "./internal/errors.ts"
 // Types
 export type { BumpType, Commit, ReleaseOptions, SemVer } from "./internal/types.ts"
+export type { PreviewResult } from "./release.ts"
 // Orchestrator
-export { release } from "./release.ts"
+export { preview, release } from "./release.ts"
 // Core functions
 export { bumpVersion, parseVersion } from "./semver.ts"
