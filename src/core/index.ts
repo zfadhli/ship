@@ -3,6 +3,8 @@
 
 export type { ChangelogOptions } from "./changelog.ts"
 export { generateChangelog } from "./changelog.ts"
+export type { CommitResult, CommitType } from "./commit.ts"
+export { createCommit } from "./commit.ts"
 export type { ClassifiedCommit, CommitWarning, ConventionalType } from "./conventional-commits.ts"
 export { classifyBump, classifyCommits, validateCommits } from "./conventional-commits.ts"
 export { getCommits, getLastTag, getRepoUrl } from "./git.ts"

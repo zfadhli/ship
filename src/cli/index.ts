@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 import * as p from "@clack/prompts"
 import { createCLI } from "@zfadhli/koko-cli"
-import { classifyBump, getCommits, getLastTag, preview, release, ShipError } from "../core/index.ts"
+import {
+  classifyBump,
+  createCommit,
+  getCommits,
+  getLastTag,
+  preview,
+  release,
+  ShipError,
+} from "../core/index.ts"
 
 const cli = createCLI("ship", "0.1.0").description(
   "Release automation — changelog generation, version bumping, GitHub releases",
@@ -130,5 +138,52 @@ cli.command("status", "Show what the next release would look like", (cmd) => {
     }
   })
 })
+
+// ── ship commit ───────────────────────────────────────────────────────
+cli.command(
+  "commit",
+  "Stage all changes, auto-classify, and commit with a conventional message",
+  (cmd) => {
+    cmd.option("--dry-run", "Show what would be committed without committing")
+
+    cmd.action(async (options: { dryRun?: boolean }) => {
+      p.intro("ship commit")
+
+      const s = p.spinner()
+      s.start("Analyzing staged changes...")
+
+      try {
+        const result = await createCommit({ dryRun: options.dryRun })
+
+        s.stop("Analysis complete")
+
+        const parts = [`Type:    ${result.breaking ? `${result.type}!` : result.type}`]
+        if (result.scope) parts.push(`Scope:   ${result.scope}`)
+        parts.push(`Message: ${result.message}`)
+        parts.push(`Files:   ${result.files.length}`)
+        if (result.changesetPath) {
+          parts.push(`Changeset: ${result.changesetPath}`)
+        }
+
+        p.note(parts.join("\n"), "Commit")
+
+        if (options.dryRun) {
+          p.outro("Dry run — nothing was committed.")
+          return
+        }
+
+        p.outro(`Committed as: ${result.message}`)
+      } catch (err) {
+        s.stop("Error")
+        if (err instanceof ShipError) {
+          p.cancel(err.message)
+        } else {
+          p.cancel(String(err))
+        }
+        process.exit(1)
+      }
+    })
+  },
+)
 
 cli.parse()
