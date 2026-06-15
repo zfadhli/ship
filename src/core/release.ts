@@ -126,7 +126,7 @@ export async function release(options: ReleaseOptions = {}): Promise<void> {
   await stageAll(cwd)
   await createCommit(`Release ${tag}`, cwd)
   await createTag(tag, cwd)
-  await push("main", cwd)
+  await push(options.branch ?? "main", cwd)
   await pushTag(tag, cwd)
 
   // 10. Create GitHub Release

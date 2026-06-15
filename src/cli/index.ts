@@ -23,83 +23,93 @@ cli.command("release", "Run the full release flow", (cmd) => {
   cmd.option("--yes, -y", "Skip all confirmation prompts (CI mode)")
   cmd.option("--from <ref>", "Git ref to compare against (default: last tag)")
   cmd.option("--repo <owner/repo>", "GitHub repository override")
+  cmd.option("--branch <name>", "Git branch to push to (default: main)")
 
-  cmd.action(async (options: { dryRun?: boolean; yes?: boolean; from?: string; repo?: string }) => {
-    p.intro("ship release")
+  cmd.action(
+    async (options: {
+      dryRun?: boolean
+      yes?: boolean
+      from?: string
+      repo?: string
+      branch?: string
+    }) => {
+      p.intro("ship release")
 
-    const s = p.spinner()
-    s.start("Analyzing commits...")
+      const s = p.spinner()
+      s.start("Analyzing commits...")
 
-    try {
-      // ── analysis phase ──────────────────────────────────────
-      const from = options.from ?? (await getLastTag())
-      const commits = await getCommits({ from })
+      try {
+        // ── analysis phase ──────────────────────────────────────
+        const from = options.from ?? (await getLastTag())
+        const commits = await getCommits({ from })
 
-      if (commits.length === 0) {
-        s.stop("Nothing to release")
-        p.cancel("No commits since the last tag.")
-        process.exit(0)
-      }
-
-      const bump = classifyBump(commits)
-      const pkgRaw = await readFile(resolve("package.json"), "utf-8")
-      const oldVersion = (JSON.parse(pkgRaw) as { version: string }).version
-      const newVersion = bumpVersion(oldVersion, bump)
-      const repoUrl = options.repo ? `https://github.com/${options.repo}` : await getRepoUrl()
-
-      s.stop("Analysis complete")
-
-      // ── preview ─────────────────────────────────────────────
-      const previewLines = [
-        `Last tag:    ${from}`,
-        `Commits:     ${commits.length}`,
-        `Old version: ${oldVersion}`,
-        `Next bump:   ${bump}`,
-        `New version: ${newVersion}`,
-      ]
-
-      p.note(previewLines.join("\n"), "Release Preview")
-
-      if (options.dryRun) {
-        p.outro("Dry run — no changes were made.")
-        return
-      }
-
-      // ── confirmation ────────────────────────────────────────
-      if (!options.yes) {
-        const shouldProceed = await p.confirm({
-          message: "Proceed with release?",
-          initialValue: true,
-        })
-        if (p.isCancel(shouldProceed) || !shouldProceed) {
-          p.cancel("Aborted")
+        if (commits.length === 0) {
+          s.stop("Nothing to release")
+          p.cancel("No commits since the last tag.")
           process.exit(0)
         }
+
+        const bump = classifyBump(commits)
+        const pkgRaw = await readFile(resolve("package.json"), "utf-8")
+        const oldVersion = (JSON.parse(pkgRaw) as { version: string }).version
+        const newVersion = bumpVersion(oldVersion, bump)
+        const repoUrl = options.repo ? `https://github.com/${options.repo}` : await getRepoUrl()
+
+        s.stop("Analysis complete")
+
+        // ── preview ─────────────────────────────────────────────
+        const previewLines = [
+          `Last tag:    ${from}`,
+          `Commits:     ${commits.length}`,
+          `Old version: ${oldVersion}`,
+          `Next bump:   ${bump}`,
+          `New version: ${newVersion}`,
+        ]
+
+        p.note(previewLines.join("\n"), "Release Preview")
+
+        if (options.dryRun) {
+          p.outro("Dry run — no changes were made.")
+          return
+        }
+
+        // ── confirmation ────────────────────────────────────────
+        if (!options.yes) {
+          const shouldProceed = await p.confirm({
+            message: "Proceed with release?",
+            initialValue: true,
+          })
+          if (p.isCancel(shouldProceed) || !shouldProceed) {
+            p.cancel("Aborted")
+            process.exit(0)
+          }
+        }
+
+        // ── execution ───────────────────────────────────────────
+        const s2 = p.spinner()
+        s2.start("Releasing...")
+
+        await release({
+          yes: true,
+          dryRun: false,
+          from: options.from,
+          repo: options.repo,
+          branch: options.branch,
+        })
+
+        s2.stop(`Released v${newVersion}`)
+        p.outro(`Done — ${repoUrl}/releases/tag/v${newVersion}`)
+      } catch (err) {
+        s.stop("Error")
+        if (err instanceof ShipError) {
+          p.cancel(err.message)
+        } else {
+          p.cancel(String(err))
+        }
+        process.exit(1)
       }
-
-      // ── execution ───────────────────────────────────────────
-      const s2 = p.spinner()
-      s2.start("Releasing...")
-
-      await release({
-        yes: true,
-        dryRun: false,
-        from: options.from,
-        repo: options.repo,
-      })
-
-      s2.stop(`Released v${newVersion}`)
-      p.outro(`Done — ${repoUrl}/releases/tag/v${newVersion}`)
-    } catch (err) {
-      s.stop("Error")
-      if (err instanceof ShipError) {
-        p.cancel(err.message)
-      } else {
-        p.cancel(String(err))
-      }
-      process.exit(1)
-    }
-  })
+    },
+  )
 })
 
 // ── ship status ────────────────────────────────────────────────────────

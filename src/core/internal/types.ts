@@ -25,4 +25,6 @@ export interface ReleaseOptions {
   dryRun?: boolean
   /** GitHub "owner/repo" override (auto-detected from git remote) */
   repo?: string
+  /** Git branch to push to (default: "main") */
+  branch?: string
 }
