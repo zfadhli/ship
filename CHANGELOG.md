@@ -1,3 +1,9 @@
+## [0.4.0] - 2026-06-15
+
+### Features
+
+- add ship commit command with changeset integration ([b8dfd1b](https://github.com/zfadhli/ship/commit/b8dfd1b))
+
 ## [0.3.0] - 2026-06-15
 
 ### Features

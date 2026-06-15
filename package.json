@@ -1,7 +1,7 @@
 {
   "name": "@zfadhli/ship",
   "type": "module",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": false,
   "description": "Release automation — changelog generation, version bumping, GitHub releases",
   "license": "MIT",
