@@ -4,6 +4,7 @@ export interface SemVer {
   major: number
   minor: number
   patch: number
+  prerelease?: string
 }
 
 export interface Commit {
